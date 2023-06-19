@@ -1,0 +1,418 @@
+//AllProductSection
+
+import {Component} from 'react'
+import Loader from 'react-loader-spinner'
+import Cookies from 'js-cookie'
+
+import FiltersGroup from '../FiltersGroup'
+import ProductCard from '../ProductCard'
+import ProductsHeader from '../ProductsHeader'
+
+import './index.css'
+
+const categoryOptions = [
+  {
+    name: 'Clothing',
+    categoryId: '1',
+  },
+  {
+    name: 'Electronics',
+    categoryId: '2',
+  },
+  {
+    name: 'Appliances',
+    categoryId: '3',
+  },
+  {
+    name: 'Grocery',
+    categoryId: '4',
+  },
+  {
+    name: 'Toys',
+    categoryId: '5',
+  },
+]
+
+const sortbyOptions = [
+  {
+    optionId: 'PRICE_HIGH',
+    displayText: 'Price (High-Low)',
+  },
+  {
+    optionId: 'PRICE_LOW',
+    displayText: 'Price (Low-High)',
+  },
+]
+
+const ratingsList = [
+  {
+    ratingId: '4',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-four-stars-img.png',
+  },
+  {
+    ratingId: '3',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-three-stars-img.png',
+  },
+  {
+    ratingId: '2',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-two-stars-img.png',
+  },
+  {
+    ratingId: '1',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-one-star-img.png',
+  },
+]
+
+const apiStatusConstants = {
+  initial: 'INITIAL',
+  success: 'SUCCESS',
+  failure: 'FAILURE',
+  inProgress: 'IN_PROGRESS',
+}
+
+class AllProductsSection extends Component {
+  state = {
+    productsList: [],
+    isLoading: false,
+    activeOptionId: sortbyOptions[0].optionId,
+    activeCategoryId: '',
+    searchInput: '',
+    activeRatingId: '',
+  }
+
+  componentDidMount() {
+    this.getProducts()
+  }
+
+  getProducts = async () => {
+    this.setState({
+      apiStatus: apiStatusConstants.inProgress,
+    })
+    const jwtToken = Cookies.get('jwt_token')
+
+    const {
+      activeOptionId,
+      activeCategoryId,
+      searchInput,
+      activeRatingId,
+    } = this.state
+    const apiUrl = `https://apis.ccbp.in/products?sort_by=${activeOptionId}&category=${activeCategoryId}&title_search=${searchInput}&rating=${activeRatingId}`
+    const options = {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      method: 'GET',
+    }
+    const response = await fetch(apiUrl, options)
+    if (response.ok) {
+      const fetchedData = await response.json()
+      const updatedData = fetchedData.products.map(product => ({
+        title: product.title,
+        brand: product.brand,
+        price: product.price,
+        id: product.id,
+        imageUrl: product.image_url,
+        rating: product.rating,
+      }))
+      this.setState({
+        productsList: updatedData,
+        apiStatus: apiStatusConstants.success,
+      })
+    } else {
+      this.setState({
+        apiStatus: apiStatusConstants.failure,
+      })
+    }
+  }
+
+  renderLoadingView = () => (
+    <div className="products-loader-container">
+      <Loader type="ThreeDots" color="#0b69ff" height="50" width="50" />
+    </div>
+  )
+
+  renderFailureView = () => (
+    <div className="error-container">
+      <img
+        src="https://assets.ccbp.in/frontend/react-js/nxt-trendz/nxt-trendz-products-error-view.png"
+        alt="products failure"
+        className="error-image"
+      />
+      <h1 className="heading">Oops! Somenthing Went Wrong</h1>
+      <p className="para">
+        We are having trouble processing your request. Please try again
+      </p>
+    </div>
+  )
+
+  changeSortby = activeOptionId => {
+    this.setState({activeOptionId}, this.getProducts)
+  }
+
+  renderProductsListView = () => {
+    const {productsList, activeOptionId} = this.state
+    const shouldShowProductList = productsList.length > 0
+
+    return shouldShowProductList ? (
+      <div className="all-products-container">
+        <ProductsHeader
+          activeOptionId={activeOptionId}
+          sortbyOptions={sortbyOptions}
+          changeSortby={this.changeSortby}
+        />
+        <ul className="products-list">
+          {productsList.map(product => (
+            <ProductCard productData={product} key={product.id} />
+          ))}
+        </ul>
+      </div>
+    ) : (
+      <div className="no-product-container">
+        <img
+          src="https://assets.ccbp.in/frontend/react-js/nxt-trendz/nxt-trendz-no-products-view.png"
+          alt="no products"
+          className="no-product-image"
+        />
+        <h1 className="heading">No Product Found</h1>
+        <p className="para">
+          We could not find any products. try other filters.
+        </p>
+      </div>
+    )
+  }
+
+  renderAllProducts = () => {
+    const {apiStatus} = this.state
+
+    switch (apiStatus) {
+      case apiStatusConstants.success:
+        return this.renderProductsListView()
+      case apiStatusConstants.failure:
+        return this.renderFailureView()
+      case apiStatusConstants.inProgress:
+        return this.renderLoadingView()
+      default:
+        return null
+    }
+  }
+
+  clearFilter = () => {
+    this.setState(
+      {
+        searchInput: '',
+        activeCategoryId: '',
+        activeRatingId: '',
+      },
+      this.getProducts,
+    )
+  }
+
+  changeRating = activeRatingId => {
+    this.setState({activeRatingId}, this.getProducts)
+  }
+
+  changeCategory = activeCategoryId => {
+    this.setState({activeCategoryId}, this.getProducts)
+  }
+
+  enterSearchInput = () => {
+    this.getProducts()
+  }
+
+  changeSearchInput = searchInput => {
+    this.setState({searchInput})
+  }
+
+  render() {
+    const {isLoading} = this.state
+
+    return (
+      <div className="all-products-section">
+        <FiltersGroup
+          searchInput={searchInput}
+          categoryOptions={categoryOptions}
+          ratingsList={ratingsList}
+          changeSearchInput={this.changeSearchInput}
+          enterSearchInput={this.enterSearchInput}
+          activeCategoryId={activeCategoryId}
+          activeRatingId={activeRatingId}
+          changeCategory={this.changeCategory}
+          changeRating={this.changeRating}
+          clearFilter={this.clearFilter}
+        />
+        {this.renderAllProducts()}
+      </div>
+    )
+  }
+}
+
+export default AllProductsSection
+
+
+//FiltersGroup
+
+import {BsSearch} from 'react-icons/bs'
+import './index.css'
+
+const FiltersGroup = props => {
+  const renderRatingsFiltersList = () => {
+    const {ratingsList} = props
+
+    return ratingsList.map(rating => {
+      const {changeRating, activeRatingId} = props
+      const onClickRatingItem = () => changeRating(rating.ratingId)
+
+      const ratingClassName =
+        activeRatingId === rating.ratingId ? `and-up active-rating` : `and-up`
+
+      return (
+        <li
+          className="rating-item"
+          alt={rating.ratingId}
+          onClick={onClickRatingItem}
+        >
+          <img
+            src={rating.imageUrl}
+            alt={`rating ${rating.ratingId}`}
+            className="rating-img"
+          />
+          <p className={ratingClassName}>& up</p>
+        </li>
+      )
+    })
+  }
+
+  const renderRatingsFilters = () => (
+    <div>
+      <h1 className="rating-heading">Rating</h1>
+      <ul className="ratings-list">{renderRatingsFiltersList()}</ul>
+    </div>
+  )
+
+  const renderCategoriesList = () => {
+    const {categoryOptions} = props
+
+    return categoryOptions.map(category => {
+      const {changeCategory, activeCategoryId} = props
+      const onClickCategoryItem = () => changeCategory(category.categoryId)
+      const isActive = category.categoryId === activeCategoryId
+      const categoryClassName = isActive
+        ? `category-name active-category-name`
+        : `category-name`
+
+      return (
+        <li
+          className="category-item"
+          key={category.categoryId}
+          onClick={onClickCategoryItem}
+        >
+          <p className={categoryClassName}>{category.name}</p>
+        </li>
+      )
+    })
+  }
+
+  const renderProductCategories = () => (
+    <>
+      <h1 className="category-heading">Category</h1>
+      <ul className="categories-list">{renderCategoriesList()}</ul>
+    </>
+  )
+
+  const onEnterSearchInput = event => {
+    const {enterSearchInput} = props
+    if (event.key === 'Enter') {
+      enterSearchInput()
+    }
+  }
+
+  const onChangeSearchInput = event => {
+    const {changeSearchInput} = props
+    changeSearchInput(event.target.value)
+  }
+
+  const renderSearchInput = () => {
+    const {searchInput} = props
+
+    return (
+      <div className="search-input-container">
+        <input
+          value={searchInput}
+          type="search"
+          className="search-input"
+          placeholder="Search"
+          onChange={onChangeSearchInput}
+          onKeyDown={onEnterSearchInput}
+        />
+        <BsSearch className="search-icon" />
+      </div>
+    )
+  }
+
+  const {clearFilters} = props
+
+  return (
+    <div className="filters-group-container">
+      {renderSearchInput()}
+      {renderProductCategories()}
+      {renderRatingsFilters()}
+      <button
+        type="button"
+        className="clear-filters-btn"
+        onClick={clearFilters}
+      >
+        Clear Filters
+      </button>
+    </div>
+  )
+}
+
+export default FiltersGroup
+
+
+//Home
+
+import {Link} from 'react-router-dom'
+
+import Header from '../Header'
+
+import './index.css'
+
+const Home = () => (
+  <>
+    <Header />
+    <div className="home-container">
+      <div className="home-content">
+        <h1 className="home-heading">Clothes That Get YOU Noticed</h1>
+        <img
+          src="https://assets.ccbp.in/frontend/react-js/nxt-trendz-home-img.png"
+          alt="clothes that get you noticed"
+          className="home-mobile-img"
+        />
+        <p className="home-description">
+          Fashion is part of the daily air and it does not quite help that it
+          changes all the time. Clothes have always been a marker of the era and
+          we are in a revolution. Your fashion makes you been seen and heard
+          that way you are. So, celebrate the seasons new and exciting fashion
+          in your own way.
+        </p>
+        <Link to="/products">
+          <button type="button" className="shop-now-button">
+            Shop Now
+          </button>
+        </Link>
+      </div>
+      <img
+        src="https://assets.ccbp.in/frontend/react-js/nxt-trendz-home-img.png"
+        alt="clothes that get you noticed"
+        className="home-desktop-img"
+      />
+    </div>
+  </>
+)
+
+export default Home
